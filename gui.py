@@ -31,7 +31,7 @@ class SuperpixelGUI:
         self.superpixels = None
         self.prompt_mask = None
         self.save_name = ""
-        self.alpha = 0.2
+        self.alpha = 0.5
         self.combined_masks = None
         self.polygon_mask = None
         self.mask = None
@@ -57,19 +57,23 @@ class SuperpixelGUI:
         self.offseg_net.to("cuda:0")
         self.to_tensor = T.ToTensor(mean=(0.3257, 0.3690, 0.3223), std=(0.2112, 0.2148, 0.2115))
         
+        
         self.open_button = tk.Button(self.master, text="Open Folder", command=self.open_folder)
         self.open_button.pack()
 
-        self.save_button = tk.Button(self.master, text="Save", command=self.save_images, state=tk.DISABLED)
-        self.save_button.place(x = 800, y = 20)
+        self.save_button = tk.Button(self.master, text="Save", command=self.save_images)
+        self.save_button.place(relx = 0.8, rely = 0.02)
 
-        self.view_image_button = tk.Button(self.master, text="Raw Image")
-        self.view_image_button.place(x = 200, y = 20)
+        self.view_image_button = tk.Button(self.master, text="Raw Image", fg='green')
+        self.view_image_button.place(relx = 0.15, rely = 0.02)
         self.view_image_button.bind("<ButtonPress-1>", lambda event: self.show_image_cus(self.org_image))
         self.view_image_button.bind("<ButtonRelease-1>", lambda event: self.show_image_custom())
 
+        self.view_semantics_button = tk.Button(self.master, text="View Semantics", command=self.view_semantics, fg='blue')
+        self.view_semantics_button.place(relx = 0.25, rely = 0.02)
+
         self.compactness_var = tk.IntVar()
-        self.compactness_scale = tk.Scale(self.master, from_=1, to=100, length=300, orient=tk.HORIZONTAL, label="Compactness", variable=self.compactness_var)
+        self.compactness_scale = tk.Scale(self.master, from_=1, to=100, length=300, orient=tk.HORIZONTAL, label="Superpixels Compactness", variable=self.compactness_var)
         self.compactness_scale.set(25)
         self.compactness_scale.pack()
 
@@ -84,22 +88,19 @@ class SuperpixelGUI:
         self.num_superpixels_scale.pack()
 
         self.generate_button = tk.Button(self.master, text="Generate Superpixels", command=self.generate_superpixels)
-        self.generate_button.place(x = 150, y = 200)
+        self.generate_button.place(relx = 0.15, rely = 0.2)
 
         self.sam_generate_button = tk.Button(self.master, text="Generate SAM masks", command=self.generate_masks)
         self.sam_generate_button.pack()
 
         self.offseg_seg_button = tk.Button(self.master, text="Segment using offseg", command=self.segment_offseg)
-        self.offseg_seg_button.place(x = 150, y = 100)
+        self.offseg_seg_button.place(relx = 0.15, rely = 0.1)
 
-        self.revert_button = tk.Button(self.master, text="Revert previous selection", command=self.revert_superpixels)
-        self.revert_button.place(x = 800, y = 200)
-
-        self.view_semantics_button = tk.Button(self.master, text="View Semantics", command=self.view_semantics)
-        self.view_semantics_button.place(x = 980, y = 250)
+        self.revert_button = tk.Button(self.master, text="Undo action", command=self.revert_superpixels, fg = 'red')
+        self.revert_button.place(relx = 0.7, rely = 0.2)
 
         self.interpolate_button = tk.Button(self.master, text="Interpolate", command=self.interpolate)
-        self.interpolate_button.place(x = 980, y = 300)
+        self.interpolate_button.place(relx = 0.85, rely = 0.2)
 
         self.num_segments_label = tk.Label(self.master, text="Actual number of superpixels: -")
         self.num_segments_label.pack()
@@ -108,28 +109,32 @@ class SuperpixelGUI:
         self.num_masks_label.pack()
 
         self.segment_rectangle_button = tk.Button(self.master, text = "Segment Rectangle", command = self.segment_rectangle)
-        self.segment_rectangle_button.place(x = 800, y = 150)
+        self.segment_rectangle_button.place(relx = 0.7, rely = 0.15)
 
-        self.percentage_label = tk.Label(self.master, text="Percentage of superpixels labeled: -")
-        self.percentage_label.pack()
+        self.image_label = tk.Label(self.master, text="Current image: -")
+        self.image_label.pack()
 
         self.original_image = None  # New instance variable
 
         self.color_labels = {
-            0: ("void", "#000000"), 1: ("dirt", "#6c4014"), 3: ("grass", "#006600"), 4: ("trees", "#00ff00"),
-            5: ("pole", "#009999"), 6: ("water", "#0080ff"), 7: ("sky", "#0000ff"), 8: ("vehicle", "#ffff00"),
-            9: ("object", "#ff007f"), 10: ("asphalt", "#404040"), 12: ("build", "#ff0000"), 15: ("log", "#660000"),
-            17: ("person", "#cc99ff"), 18: ("fence", "#6600cc"), 19: ("bush", "#ff99cc"), 23: ("concrete", "#aaaaaa"),
-            27: ("barrier", "#2979FF"), 31: ("puddle", "#86ffef"), 33: ("mud", "#634222"), 34: ('rubble','#6e168a'),
-            35: ("mulch", "#8000ff"), 36: ("gravel", "#808080")
+            0: ("background", "#000000"), 1: ("ground", "#00FFFF"), 2: ("grass", "#00FF00"), 3: ("water", "#0000FF")
         }
 
+        # self.color_labels = {
+        #     0: ("void", "#000000"), 1: ("dirt", "#6c4014"), 3: ("grass", "#006600"), 4: ("trees", "#00ff00"),
+        #     5: ("pole", "#009999"), 6: ("water", "#0080ff"), 7: ("sky", "#0000ff"), 8: ("vehicle", "#ffff00"),
+        #     9: ("object", "#ff007f"), 10: ("asphalt", "#404040"), 12: ("build", "#ff0000"), 15: ("log", "#660000"),
+        #     17: ("person", "#cc99ff"), 18: ("fence", "#6600cc"), 19: ("bush", "#ff99cc"), 23: ("concrete", "#aaaaaa"),
+        #     27: ("barrier", "#2979FF"), 31: ("puddle", "#86ffef"), 33: ("mud", "#634222"), 34: ('rubble','#6e168a'),
+        #     35: ("mulch", "#8000ff"), 36: ("gravel", "#808080")
+        # }
+
         self.color_buttons = []
-        button_frame = tk.Frame(self.master)
-        button_frame.pack(side=tk.RIGHT)
+        color_button_frame = tk.Frame(self.master)
+        color_button_frame.pack(side=tk.RIGHT)
         label_id_def = 0
         for label_id, (label_name, label_color) in self.color_labels.items():
-            color_button = tk.Button(button_frame, text=label_name, bg=label_color,
+            color_button = tk.Button(color_button_frame, text=label_name, bg=label_color,
                                     command=lambda id=label_id: self.select_label(id))
             row = label_id_def // 2
             col = label_id_def % 2
@@ -147,16 +152,16 @@ class SuperpixelGUI:
         self.canvas.bind("<Button-1>", self.prompt_masks)  # Bind the label assignment function to the left button click
 
         self.interact_button = tk.Button(self.master, text="Interact with SAM", command=self.interact)
-        self.interact_button.place(x = 150, y = 150)
+        self.interact_button.place(relx = 0.15, rely = 0.15)
 
         self.rectrangle_button = tk.Button(self.master, text="Create Rectangle", command=self.draw_rectangle)
-        self.rectrangle_button.place(x = 800, y = 100)
+        self.rectrangle_button.place(relx = 0.7, rely = 0.1)
         
         self.polygon_button = tk.Button(self.master, text="Create Polygon", command=self.draw_polygon)
-        self.polygon_button.place(x = 950, y = 100)
+        self.polygon_button.place(relx = 0.85, rely = 0.1)
 
         self.adjust_button = tk.Button(self.master, text="Adjust Polygon", command=self.adjust_polygon_dir)
-        self.adjust_button.place(x = 950, y = 150)
+        self.adjust_button.place(relx = 0.85, rely = 0.15)
 
         
 
@@ -172,16 +177,25 @@ class SuperpixelGUI:
         if 0 <= index < len(self.image_paths):
             image_path = self.image_paths[index]
             self.image_name = image_path
-            self.original_image = Image.open(image_path)  # Store the original opened image
+            # check if the image is already saved in the outputs folder
+            output_image_path = os.path.join("outputs/images", os.path.basename(image_path))
+            while os.path.exists(output_image_path):
+                index += 1
+                if index >= len(self.image_paths):
+                    return
+                image_path = self.image_paths[index]
+                self.image_name = image_path
+                output_image_path = os.path.join("outputs/images", os.path.basename(image_path))
+            self.original_image = Image.open(self.image_name)  # Store the original opened image
             self.org_np = np.asarray(self.original_image)
             self.org_image = self.original_image.resize((960, 720))
             self.image = self.original_image.resize((960, 720))  # Resize the image to fit in the canvas
             self.np_image = np.asarray(self.image)
             self.label_hist = np.zeros((np.asarray(self.image).shape[0], np.asarray(self.image).shape[1]))
+            self.image_label.configure(text="Current image: " + os.path.basename(self.image_name))
             self.show_image()
             self.current_image_index = index
 
-            self.save_button.configure(state=tk.DISABLED)
 
     def draw_rectangle(self):
         self.canvas.bind("<Button-1>", self.on_button_press)
@@ -280,7 +294,7 @@ class SuperpixelGUI:
     def view_semantics(self):
         marked_image = mark_boundaries(np.array(self.image), self.label_hist.astype(np.uint8))
         self.marked_image = (marked_image * 255).astype(np.uint8)
-        out_img = Image.fromarray(self.marked_image)
+        out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
         tk_image = ImageTk.PhotoImage(out_img)
         self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
@@ -410,7 +424,7 @@ class SuperpixelGUI:
         if self.prompt_mask is not None and show_raw:
             marked_image = mark_boundaries(np.array(self.np_image), self.prompt_mask)
             self.marked_image = (marked_image * 255).astype(np.uint8)
-            out_img = Image.fromarray(self.marked_image)
+            out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
             tk_image = ImageTk.PhotoImage(out_img)
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
@@ -418,7 +432,8 @@ class SuperpixelGUI:
         else:
             marked_image = mark_boundaries(np.array(self.image), self.prompt_mask)
             self.marked_image = (marked_image * 255).astype(np.uint8)
-            out_img = Image.fromarray(self.marked_image)
+            out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
+
 
             tk_image = ImageTk.PhotoImage(out_img)
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
@@ -428,7 +443,7 @@ class SuperpixelGUI:
          if self.offseg_mask is not None:
                 marked_image = mark_boundaries(np.array(self.image), self.offseg_mask)
                 self.marked_image = (marked_image * 255).astype(np.uint8)
-                out_img = Image.fromarray(self.marked_image)
+                out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
     
                 tk_image = ImageTk.PhotoImage(out_img)
                 self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
@@ -438,7 +453,7 @@ class SuperpixelGUI:
        if self.combined_masks is not None:
             marked_image = mark_boundaries(np.array(self.image), self.combined_masks)
             self.marked_image = (marked_image * 255).astype(np.uint8)
-            out_img = Image.fromarray(self.marked_image)
+            out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
             tk_image = ImageTk.PhotoImage(out_img)
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
@@ -448,7 +463,7 @@ class SuperpixelGUI:
         if self.rect_mask is not None:
             marked_image = mark_boundaries(np.array(self.image), self.rect_mask)
             self.marked_image = (marked_image * 255).astype(np.uint8)
-            out_img = Image.fromarray(self.marked_image)
+            out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
             tk_image = ImageTk.PhotoImage(out_img)
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
@@ -458,7 +473,7 @@ class SuperpixelGUI:
         if self.polygon_mask is not None:
             marked_image = mark_boundaries(np.array(self.image), self.polygon_mask.astype(np.uint8))
             self.marked_image = (marked_image * 255).astype(np.uint8)
-            out_img = Image.fromarray(self.marked_image)
+            out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
             tk_image = ImageTk.PhotoImage(out_img)
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
@@ -468,9 +483,9 @@ class SuperpixelGUI:
         if self.image and self.superpixels is not None:
             segmented_image = mark_boundaries(np.array(self.image), self.superpixels)
             segmented_image = (segmented_image * 255).astype(np.uint8)
-            self.segmented_image = Image.fromarray(segmented_image)
+            out_img = Image.blend(self.org_image, Image.fromarray(segmented_image), 0.5)
 
-            tk_image = ImageTk.PhotoImage(self.segmented_image)
+            tk_image = ImageTk.PhotoImage(out_img)
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
             self.canvas.image = tk_image
 
@@ -592,17 +607,6 @@ class SuperpixelGUI:
 
             # Update the displayed superpixel image with the segmented label
             self.show_poly_masks()
-        #print(np.count_nonzero(self.label_hist==0))
-        percentage = np.count_nonzero(self.label_hist.flatten()==0)/len(self.label_hist.flatten())*3*100
-        self.percentage_label.configure(text="Percentage of PIXELS labeled: " + str(100-percentage))
-        # Check if all superpixels have been labeled
-        if len(self.segment_labels) == len(np.unique(self.superpixels)):
-           self.save_button.configure(state=tk.NORMAL)
-
-        if np.any(self.label_hist == 0):
-            self.save_button.configure(state=tk.DISABLED)
-        else:
-            self.save_button.configure(state=tk.NORMAL)
     
     def interpolate(self):
         kernel_size = 7
@@ -619,15 +623,11 @@ class SuperpixelGUI:
                     # Extract the kernel centered at the current element
                     kernel = padded_arr[i:i+kernel_size, j:j+kernel_size]
                     
-                    # Find the most frequent non-zero value in the kernel
-                    non_zero_elements = kernel[kernel != 0]
-                    if non_zero_elements.size > 0:
-                        most_frequent = mode(non_zero_elements, axis=None).mode[0]
-                        # Replace the zero with the most frequent non-zero value found
-                        arr[i, j] = most_frequent
+                    # Find the most frequent value in the kernel
+                    most_frequent = mode(kernel, axis=None).mode
+                    # Replace the values with the most frequent value found
+                    arr[i, j] = most_frequent
         self.label_hist = arr
-        percentage = np.count_nonzero(self.label_hist.flatten()==0)/len(self.label_hist.flatten())*100
-        self.percentage_label.configure(text="Percentage of PIXELS labeled: " + str(100-percentage))
 
         col_image = self.label_image(False)
         tk_image = ImageTk.PhotoImage(col_image)
@@ -636,25 +636,25 @@ class SuperpixelGUI:
 
 
     def save_images(self):
-        save_folder = "images"
+        save_folder = "outputs/images"
         os.makedirs(save_folder, exist_ok=True)
         original_save_path = os.path.join(save_folder, os.path.basename(self.image_name))
         self.original_image.save(original_save_path)  # Save the original image
 
-        color_labels_folder = "color_labels"
+        color_labels_folder = "outputs/color_labels"
         os.makedirs(color_labels_folder, exist_ok=True)
         color_save_path = os.path.join(color_labels_folder, os.path.basename(self.image_name))
         labeled_image = self.label_image()
         labeled_image.save(color_save_path)
 
-        labels_folder = "labels"
+        labels_folder = "outputs/labels"
         os.makedirs(labels_folder, exist_ok=True)
         gray_save_path = os.path.join(labels_folder, os.path.basename(self.image_name))
         #gray_array = self.get_gray_array()
-        cv2.imwrite(gray_save_path, cv2.resize(self.label_hist, (self.org_np.shape[1],self.org_np.shape[0]), interpolation=cv2.INTER_NEAREST))
+        cv2.imwrite(gray_save_path, cv2.resize(self.label_hist, (self.org_np.shape[1],self.org_np.shape[0])))
 
         #removing the image from work folder
-        os.remove(self.image_name)
+        # os.remove(self.image_name)
 
         self.segment_labels = {}  # Clear the segment labels for the next image
         self.current_image_index += 1

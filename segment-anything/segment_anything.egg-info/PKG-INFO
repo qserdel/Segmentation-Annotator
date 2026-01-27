@@ -1,5 +1,5 @@
-Metadata-Version: 2.1
-Name: segment-anything
+Metadata-Version: 2.4
+Name: segment_anything
 Version: 1.0
 License-File: LICENSE
 Provides-Extra: all
@@ -13,3 +13,5 @@ Requires-Dist: flake8; extra == "dev"
 Requires-Dist: isort; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
+Dynamic: license-file
+Dynamic: provides-extra
