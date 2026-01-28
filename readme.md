@@ -57,7 +57,7 @@ When opeining a folder, only images with names not already present in the output
 ## Custom Dataset
 To annotate your custom dataset with your own custom labels, please refer to [custom_annotations_readme.md](./custom_annotations_readme.md)
 
-### Upcoming (hopefully)
+## Upcoming (hopefully)
 
 - A zoom feature
 - A free painting tool
