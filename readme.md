@@ -1,10 +1,6 @@
 # Segmentation Annotator
 
-This repository contains a segmentation annotator tool that allows you to annotate images for segmentation tasks. The tool was used to annotate [The Great Outdoors Dataset](http://www.unmannedlab.org/the-great-outdoors-dataset/).
-
-
-https://github.com/user-attachments/assets/f53c23f6-0f35-46b2-ba8b-2936869aa97c
-
+This repository is a fork from https://github.com/unmannedlab/Segmentation-Annotator. It contains a segmentation annotator tool that allows you to annotate images for segmentation tasks. The tool was used to annotate [The Great Outdoors Dataset](http://www.unmannedlab.org/the-great-outdoors-dataset/).
 
 ## Features
 
@@ -20,7 +16,7 @@ https://github.com/user-attachments/assets/f53c23f6-0f35-46b2-ba8b-2936869aa97c
 1. Clone the repository:
 
     ```bash
-    git clone https://github.com/unmannedlab/Segmentation-annotator.git
+    git clone https://github.com/qserdel/Segmentation-annotator.git
     ```
 
 2. Install the required dependencies: 
@@ -46,9 +42,17 @@ Download the [SAM checkpoint](https://dl.fbaipublicfiles.com/segment_anything/sa
     python gui.py
     ```
 
-2. Load an image and start annotating.
+2. Load an image folder and start annotating.
 
-3. Save your annotations and export the annotated image.
+3. Suggested image segmentation pipeline: 
+    - Start by clicking on the _Generate Superpixels_ button
+    - Allocate the most represented label in each superpixel for a coarse segmentation
+    - Refine the annotation using the interactive SAM feature
+    Note: you can click in multiple place after clicking on the _Interact with SAM_ button to refine its segmentation
+
+4. Click "Save" to export the original image, labeled image and colored label image in the "outputs" folder.
+
+When opeining a folder, only images with names not already present in the outputs/images folder will be loaded to the segmentation tool.
 
 ## Custom Dataset
 To annotate your custom dataset with your own custom labels, please refer to [custom_annotations_readme.md](./custom_annotations_readme.md)
@@ -58,6 +62,11 @@ To annotate your custom dataset with your own custom labels, please refer to [cu
 Contributions are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request. 
 ##### Contact: kasiv@tamu.edu
 ### We will release a new update with the integration of SAM 2 for faster video annotations. Stay tuned!
+
+### Upcoming
+
+- A zoom feature
+- A free painting tool
 
 ## License
 
