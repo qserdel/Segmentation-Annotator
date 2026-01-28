@@ -47,8 +47,8 @@ Download the [SAM checkpoint](https://dl.fbaipublicfiles.com/segment_anything/sa
 3. Suggested image segmentation pipeline: 
     - Start by clicking on the _Generate Superpixels_ button
     - Allocate the most represented label in each superpixel for a coarse segmentation
-    - Refine the annotation using the interactive SAM feature
-    Note: you can click in multiple place after clicking on the _Interact with SAM_ button to refine its segmentation
+    - Refine the annotation using the interactive SAM feature.
+    (Note: you can click in multiple place after clicking on the _Interact with SAM_ button to refine its segmentation)
 
 4. Click "Save" to export the original image, labeled image and colored label image in the "outputs" folder.
 
@@ -57,13 +57,7 @@ When opeining a folder, only images with names not already present in the output
 ## Custom Dataset
 To annotate your custom dataset with your own custom labels, please refer to [custom_annotations_readme.md](./custom_annotations_readme.md)
 
-## Contributing
-
-Contributions are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request. 
-##### Contact: kasiv@tamu.edu
-### We will release a new update with the integration of SAM 2 for faster video annotations. Stay tuned!
-
-### Upcoming
+### Upcoming (hopefully)
 
 - A zoom feature
 - A free painting tool
