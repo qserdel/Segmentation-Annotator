@@ -651,7 +651,7 @@ class SuperpixelGUI:
         os.makedirs(labels_folder, exist_ok=True)
         gray_save_path = os.path.join(labels_folder, os.path.basename(self.image_name))
         #gray_array = self.get_gray_array()
-        cv2.imwrite(gray_save_path, cv2.resize(self.label_hist, (self.org_np.shape[1],self.org_np.shape[0])))
+        cv2.imwrite(gray_save_path, cv2.resize(self.label_hist, (self.org_np.shape[1],self.org_np.shape[0]), interpolation=cv2.INTER_NEAREST))
 
         #removing the image from work folder
         # os.remove(self.image_name)
@@ -661,7 +661,7 @@ class SuperpixelGUI:
         self.load_image(self.current_image_index)  # Load the next image
 
     def label_image(self, event = True):
-        labeled_image = np.array(self.image)
+        labeled_image = np.zeros((self.label_hist.shape[0], self.label_hist.shape[1], 3), dtype=np.uint8)
         for segment_id, label_id in self.segment_labels.items():
             mask = (self.label_hist == label_id)
             label_color = self.color_labels[label_id][1]
