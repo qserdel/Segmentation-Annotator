@@ -57,10 +57,15 @@ When opeining a folder, only images with names not already present in the output
 ## Custom Dataset
 To annotate your custom dataset with your own custom labels, please refer to [custom_annotations_readme.md](./custom_annotations_readme.md)
 
-## Upcoming (hopefully)
+## Changelog from original repository
 
-- A zoom feature
-- A free painting tool
+- Added transparency between color labels and original image for better visualisation during annotation
+- Updated the layout to support window resizing without overlapping elements
+- Changed the saving procedure (don't delete the images from original folder but check presence in the outputs instead)
+- Unlabeled pixels are now automatically given the 0 label_id, removed the 100\% pixel annotation condition to save the results
+- Updated the README (obviously)
+- TODO: A zoom feature
+- TODO: A free painting tool
 
 ## License
 
