@@ -32,6 +32,10 @@ class SuperpixelGUI:
         self.prompt_mask = None
         self.save_name = ""
         self.alpha = 0.5
+        self.imscale = 1.0
+        self.delta = 0.75 # zoom magnitude
+        self.image_width = 960
+        self.image_height = 720
         self.combined_masks = None
         self.polygon_mask = None
         self.mask = None
@@ -57,9 +61,14 @@ class SuperpixelGUI:
         self.offseg_net.to("cuda:0")
         self.to_tensor = T.ToTensor(mean=(0.3257, 0.3690, 0.3223), std=(0.2112, 0.2148, 0.2115))
         
-        
-        self.open_button = tk.Button(self.master, text="Open Folder", command=self.open_folder)
-        self.open_button.pack()
+        self.top_buttons_frame = tk.Frame(self.master)
+        self.open_button = tk.Button(self.top_buttons_frame, text="Open Folder", command=self.open_folder)
+        self.next_button = tk.Button(self.top_buttons_frame, text="Next Image", command=lambda: self.load_image(self.current_image_index + 1))
+        self.prev_button = tk.Button(self.top_buttons_frame, text="Previous Image", command=lambda: self.load_image(self.current_image_index - 1))
+        self.prev_button.pack(side=tk.LEFT)
+        self.open_button.pack(side=tk.LEFT)
+        self.next_button.pack(side=tk.LEFT)
+        self.top_buttons_frame.pack()
 
         self.save_button = tk.Button(self.master, text="Save", command=self.save_images)
         self.save_button.place(relx = 0.8, rely = 0.02)
@@ -102,6 +111,14 @@ class SuperpixelGUI:
         self.interpolate_button = tk.Button(self.master, text="Interpolate", command=self.interpolate)
         self.interpolate_button.place(relx = 0.85, rely = 0.2)
 
+        self.hand_paint_button = tk.Button(self.master, text="Hand Paint", command=self.hand_paint)
+        self.hand_paint_button.place(relx = 0.85, rely = 0.25)
+
+        self.brush_size_var = tk.IntVar()
+        self.brush_size_scale = tk.Scale(self.master, from_=1, to=10, length=100, orient=tk.HORIZONTAL, label="Brush Size", variable=self.brush_size_var)
+        self.brush_size_scale.set(3)
+        self.brush_size_scale.place(relx = 0.85, rely = 0.3)
+
         self.num_segments_label = tk.Label(self.master, text="Actual number of superpixels: -")
         self.num_segments_label.pack()
 
@@ -142,7 +159,7 @@ class SuperpixelGUI:
             self.color_buttons.append(color_button)
             label_id_def += 1
 
-        self.canvas = tk.Canvas(self.master, width=960, height=720)
+        self.canvas = tk.Canvas(self.master, width=self.image_width, height=self.image_height)
         self.canvas.pack()
 
         self.selected_label = None
@@ -150,12 +167,18 @@ class SuperpixelGUI:
 
         self.segment_labels = {}
         self.canvas.bind("<Button-1>", self.prompt_masks)  # Bind the label assignment function to the left button click
+        # bind the wheel to zoom in and out
+        self.canvas.bind('<Button-5>', self.wheel)
+        self.canvas.bind('<Button-4>', self.wheel)
+        # bind the wheel click to pan
+        self.canvas.bind('<ButtonPress-2>', lambda event: self.canvas.scan_mark(event.x, event.y))
+        self.canvas.bind('<B2-Motion>', lambda event: self.canvas.scan_dragto(event.x, event.y, gain=1))
 
         self.interact_button = tk.Button(self.master, text="Interact with SAM", command=self.interact)
         self.interact_button.place(relx = 0.15, rely = 0.15)
 
-        self.rectrangle_button = tk.Button(self.master, text="Create Rectangle", command=self.draw_rectangle)
-        self.rectrangle_button.place(relx = 0.7, rely = 0.1)
+        self.rectangle_button = tk.Button(self.master, text="Create Rectangle", command=self.draw_rectangle)
+        self.rectangle_button.place(relx = 0.7, rely = 0.1)
         
         self.polygon_button = tk.Button(self.master, text="Create Polygon", command=self.draw_polygon)
         self.polygon_button.place(relx = 0.85, rely = 0.1)
@@ -164,6 +187,23 @@ class SuperpixelGUI:
         self.adjust_button.place(relx = 0.85, rely = 0.15)
 
         
+
+    def wheel(self, event):
+        ''' Zoom with mouse wheel '''
+        scale = 1.0
+        # Respond to Linux (event.num) or Windows (event.delta) wheel event
+        if event.num == 5:
+            scale        *= self.delta
+            self.imscale = max(self.imscale * self.delta, 1.0)
+        if event.num == 4:
+            scale        /= self.delta
+            self.imscale = self.imscale / self.delta
+        # Rescale all canvas objects
+        x = self.canvas.canvasx(event.x)
+        y = self.canvas.canvasy(event.y)
+        self.canvas.scale('all', x, y, scale, scale)
+        self.show_image()
+        self.canvas.configure(scrollregion=self.canvas.bbox('all'))
 
     def open_folder(self):
         self.image_folder = filedialog.askdirectory()
@@ -206,8 +246,8 @@ class SuperpixelGUI:
 
     def on_button_press(self, event):
         # save mouse drag start position
-        self.start_x = self.canvas.canvasx(event.x)
-        self.start_y = self.canvas.canvasy(event.y)
+        self.start_x = self.canvas.canvasx(event.x)/self.imscale
+        self.start_y = self.canvas.canvasy(event.y)/self.imscale
 
     def on_mouse_drag(self, event):
         pass
@@ -215,8 +255,8 @@ class SuperpixelGUI:
         #self.canvas.coords(self.rect, self.start_x, self.start_y, curX, curY)    
 
     def on_button_release(self, event):
-        self.end_x = self.canvas.canvasx(event.x)
-        self.end_y = self.canvas.canvasy(event.y)
+        self.end_x = self.canvas.canvasx(event.x)/self.imscale
+        self.end_y = self.canvas.canvasy(event.y)/self.imscale
         self.rec_prev = self.canvas.create_rectangle(self.start_x, self.start_y, self.end_x, self.end_y, outline='red')
         self.canvas.unbind("<Button-1>")
         self.canvas.unbind("<B1-Motion>")
@@ -225,7 +265,7 @@ class SuperpixelGUI:
 
     def show_image(self):
         if self.image:
-            tk_image = ImageTk.PhotoImage(self.image)
+            tk_image = ImageTk.PhotoImage(self.image.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
             self.canvas.image = tk_image
     
@@ -257,8 +297,8 @@ class SuperpixelGUI:
 
     def on_button_press_poly(self, event):
         # save mouse drag start position
-        self.start_x = self.canvas.canvasx(event.x)
-        self.start_y = self.canvas.canvasy(event.y)
+        self.start_x = self.canvas.canvasx(event.x)/self.imscale
+        self.start_y = self.canvas.canvasy(event.y)/self.imscale
 
         nodes = np.asarray(self.polygon_points)
         dist_2 = np.sum((nodes - np.array([self.start_x,self.start_y]))**2, axis=1)
@@ -268,8 +308,8 @@ class SuperpixelGUI:
         pass
 
     def on_button_release_poly(self, event):
-        self.end_x = self.canvas.canvasx(event.x)
-        self.end_y = self.canvas.canvasy(event.y)
+        self.end_x = self.canvas.canvasx(event.x)/self.imscale
+        self.end_y = self.canvas.canvasy(event.y)/self.imscale
         self.polygon_points[self.adj_point] = [int(self.end_x),int(self.end_y)]
         self.canvas.delete("all")
         tk_image = ImageTk.PhotoImage(self.org_image)
@@ -281,7 +321,7 @@ class SuperpixelGUI:
         pass        
 
     def show_image_cus(self,image):
-        tk_image = ImageTk.PhotoImage(image)
+        tk_image = ImageTk.PhotoImage(image.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
         self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
         self.canvas.image = tk_image
         
@@ -296,7 +336,7 @@ class SuperpixelGUI:
         self.marked_image = (marked_image * 255).astype(np.uint8)
         out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
-        tk_image = ImageTk.PhotoImage(out_img)
+        tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
         self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
         self.canvas.image = tk_image
         
@@ -353,16 +393,16 @@ class SuperpixelGUI:
         self.polygon_mask = None
 
     def create_polygon(self,event):
-        x = self.canvas.canvasx(event.x)
-        y = self.canvas.canvasy(event.y)
+        x = self.canvas.canvasx(event.x)/self.imscale
+        y = self.canvas.canvasy(event.y)/self.imscale
         self.polygon_points.append([int(x),int(y)])
         self.canvas.create_oval(x-2,y-2,x+2,y+2,fill = 'black')
         if len(self.polygon_points) > 1:
             self.canvas.create_line(self.polygon_points[-2][0],self.polygon_points[-2][1],self.polygon_points[-1][0],self.polygon_points[-1][1],fill = 'red')
         
     def close_polygon(self,event):
-        x = self.canvas.canvasx(event.x)
-        y = self.canvas.canvasy(event.y)
+        x = self.canvas.canvasx(event.x)/self.imscale
+        y = self.canvas.canvasy(event.y)/self.imscale
         self.polygon_points.append([int(x),int(y)])
         self.canvas.create_oval(x-2,y-2,x+2,y+2,fill = 'black')
         self.canvas.create_line(self.polygon_points[-1][0],self.polygon_points[-1][1],self.polygon_points[-2][0],self.polygon_points[-2][1],fill = 'red')
@@ -390,8 +430,8 @@ class SuperpixelGUI:
         self.prompt_generator = SamPredictor(self.sam)
         self.prompt_generator.set_image(np.array(self.org_image))
 
-        x = self.canvas.canvasx(event.x)
-        y = self.canvas.canvasy(event.y)
+        x = self.canvas.canvasx(event.x)/self.imscale
+        y = self.canvas.canvasy(event.y)/self.imscale
 
         self.input_points.append([int(x),int(y)])
         self.input_labels.append(1)
@@ -426,7 +466,7 @@ class SuperpixelGUI:
             self.marked_image = (marked_image * 255).astype(np.uint8)
             out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
-            tk_image = ImageTk.PhotoImage(out_img)
+            tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
             self.canvas.image = tk_image
         else:
@@ -435,7 +475,7 @@ class SuperpixelGUI:
             out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
 
-            tk_image = ImageTk.PhotoImage(out_img)
+            tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
             self.canvas.image = tk_image
         
@@ -445,7 +485,7 @@ class SuperpixelGUI:
                 self.marked_image = (marked_image * 255).astype(np.uint8)
                 out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
     
-                tk_image = ImageTk.PhotoImage(out_img)
+                tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
                 self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
                 self.canvas.image = tk_image
 
@@ -455,7 +495,7 @@ class SuperpixelGUI:
             self.marked_image = (marked_image * 255).astype(np.uint8)
             out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
-            tk_image = ImageTk.PhotoImage(out_img)
+            tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
             self.canvas.image = tk_image
 
@@ -465,7 +505,7 @@ class SuperpixelGUI:
             self.marked_image = (marked_image * 255).astype(np.uint8)
             out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
-            tk_image = ImageTk.PhotoImage(out_img)
+            tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
             self.canvas.image = tk_image
 
@@ -475,7 +515,7 @@ class SuperpixelGUI:
             self.marked_image = (marked_image * 255).astype(np.uint8)
             out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
-            tk_image = ImageTk.PhotoImage(out_img)
+            tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
             self.canvas.image = tk_image
                 
@@ -485,7 +525,7 @@ class SuperpixelGUI:
             segmented_image = (segmented_image * 255).astype(np.uint8)
             out_img = Image.blend(self.org_image, Image.fromarray(segmented_image), 0.5)
 
-            tk_image = ImageTk.PhotoImage(out_img)
+            tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
             self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
             self.canvas.image = tk_image
 
@@ -500,8 +540,8 @@ class SuperpixelGUI:
         if self.selected_label is None or not self.image:
             return
 
-        x = self.canvas.canvasx(event.x)
-        y = self.canvas.canvasy(event.y)
+        x = self.canvas.canvasx(event.x)/self.imscale
+        y = self.canvas.canvasy(event.y)/self.imscale
         
         self.image_prev = self.image.copy()
         self.label_prev = self.label_hist.copy()
@@ -607,6 +647,37 @@ class SuperpixelGUI:
 
             # Update the displayed superpixel image with the segmented label
             self.show_poly_masks()
+
+    def hand_paint(self):
+        self.canvas.bind("<B1-Motion>", self.paint_label)
+        self.canvas.bind("<Button-1>", self.paint_label)
+        self.canvas.unbind("<ButtonRelease-1>")
+
+    def paint_label(self, event):
+        if self.selected_label is None or not self.image:
+            return
+
+        x = self.canvas.canvasx(event.x)/self.imscale
+        y = self.canvas.canvasy(event.y)/self.imscale
+
+        self.image_prev = self.image.copy()
+        self.label_prev = self.label_hist.copy()
+        x = int(x)
+        y = int(y)
+        brush_size = self.brush_size_var.get()
+        segmented_image = np.array(self.image)
+        label_color = self.selected_color 
+        for dy in range(-brush_size, brush_size + 1):
+            for dx in range(-brush_size, brush_size + 1):
+                if dx*dx + dy*dy <= brush_size*brush_size:
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < segmented_image.shape[1] and 0 <= ny < segmented_image.shape[0]:
+                        segmented_image[ny, nx] = tuple(int(label_color[i:i + 2], 16) for i in (1, 3, 5))
+                        self.label_hist[ny, nx] = self.selected_label
+        self.image = Image.fromarray(segmented_image)
+        # fuse and display
+        self.show_image()
+
     
     def interpolate(self):
         kernel_size = 7
@@ -630,7 +701,7 @@ class SuperpixelGUI:
         self.label_hist = arr
 
         col_image = self.label_image(False)
-        tk_image = ImageTk.PhotoImage(col_image)
+        tk_image = ImageTk.PhotoImage(col_image.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
         self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
         self.canvas.image = tk_image
 
@@ -684,7 +755,6 @@ class SuperpixelGUI:
         self.segment_labels = {}  # Clear the segment labels for the next image
         self.current_image_index += 1
         self.load_image(self.current_image_index)  # Load the next image
-
 
 if __name__ == "__main__":
     root = tk.Tk()

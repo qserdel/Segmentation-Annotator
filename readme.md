@@ -10,6 +10,7 @@ This repository is a fork from https://github.com/unmannedlab/Segmentation-Annot
 - Rectangle SAM mask
 - Coarse OFFseg segmentation
 - Manual Polygon
+- Hand Painting
 
 ## Installation
 
@@ -49,6 +50,10 @@ Download the [SAM checkpoint](https://dl.fbaipublicfiles.com/segment_anything/sa
     - Allocate the most represented label in each superpixel for a coarse segmentation
     - Refine the annotation using the interactive SAM feature.
     (Note: you can click in multiple place after clicking on the _Interact with SAM_ button to refine its segmentation)
+    - When SAM struggles to capture elements, you can use the hand painting tool 
+        - first select a label, then click on _Hand Paint_
+        - you can zoom in the image by scrolling and pan by pressing the wheel button (feature to be improved)
+
 
 4. Click "Save" to export the original image, labeled image and colored label image in the "outputs" folder.
 
@@ -63,9 +68,11 @@ To annotate your custom dataset with your own custom labels, please refer to [cu
 - Updated the layout to support window resizing without overlapping elements
 - Changed the saving procedure (don't delete the images from original folder but check presence in the outputs instead)
 - Unlabeled pixels are now automatically given the 0 label_id, removed the 100\% pixel annotation condition to save the results
+- Added _Previous Image_ and _Next Image_ buttons
 - Updated the README (obviously)
-- TODO: A zoom feature
-- TODO: A free painting tool
+- A zoom feature
+- A free painting tool
+- TODO: debug and improve pan and zoomed painting
 
 ## License
 
