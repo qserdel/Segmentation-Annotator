@@ -63,8 +63,8 @@ class SuperpixelGUI:
         
         self.top_buttons_frame = tk.Frame(self.master)
         self.open_button = tk.Button(self.top_buttons_frame, text="Open Folder", command=self.open_folder)
-        self.next_button = tk.Button(self.top_buttons_frame, text="Next Image", command=lambda: self.load_image(self.current_image_index + 1))
-        self.prev_button = tk.Button(self.top_buttons_frame, text="Previous Image", command=lambda: self.load_image(self.current_image_index - 1))
+        self.next_button = tk.Button(self.top_buttons_frame, text="Next Image", command=self.next_image)
+        self.prev_button = tk.Button(self.top_buttons_frame, text="Previous Image", command=self.previous_image)
         self.prev_button.pack(side=tk.LEFT)
         self.open_button.pack(side=tk.LEFT)
         self.next_button.pack(side=tk.LEFT)
@@ -159,7 +159,7 @@ class SuperpixelGUI:
             self.color_buttons.append(color_button)
             label_id_def += 1
 
-        self.canvas = tk.Canvas(self.master, width=self.image_width, height=self.image_height)
+        self.canvas = tk.Canvas(self.master, width=self.image_width, height=self.image_height,border=1)
         self.canvas.pack()
 
         self.selected_label = None
@@ -168,11 +168,11 @@ class SuperpixelGUI:
         self.segment_labels = {}
         self.canvas.bind("<Button-1>", self.prompt_masks)  # Bind the label assignment function to the left button click
         # bind the wheel to zoom in and out
-        self.canvas.bind('<Button-5>', self.wheel)
-        self.canvas.bind('<Button-4>', self.wheel)
+        # self.canvas.bind('<Button-5>', self.wheel)
+        # self.canvas.bind('<Button-4>', self.wheel)
         # bind the wheel click to pan
-        self.canvas.bind('<ButtonPress-2>', lambda event: self.canvas.scan_mark(event.x, event.y))
-        self.canvas.bind('<B2-Motion>', lambda event: self.canvas.scan_dragto(event.x, event.y, gain=1))
+        # self.canvas.bind('<ButtonPress-2>', lambda event: self.canvas.scan_mark(event.x, event.y))
+        # self.canvas.bind('<B2-Motion>', lambda event: self.canvas.scan_dragto(event.x, event.y, gain=1))
 
         self.interact_button = tk.Button(self.master, text="Interact with SAM", command=self.interact)
         self.interact_button.place(relx = 0.15, rely = 0.15)
@@ -463,21 +463,14 @@ class SuperpixelGUI:
     def show_prompt_masks(self,show_raw):
         if self.prompt_mask is not None and show_raw:
             marked_image = mark_boundaries(np.array(self.np_image), self.prompt_mask)
-            self.marked_image = (marked_image * 255).astype(np.uint8)
-            out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
-
-            tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
-            self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
-            self.canvas.image = tk_image
         else:
             marked_image = mark_boundaries(np.array(self.image), self.prompt_mask)
-            self.marked_image = (marked_image * 255).astype(np.uint8)
-            out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
+        self.marked_image = (marked_image * 255).astype(np.uint8)
+        out_img = Image.blend(self.org_image, Image.fromarray(self.marked_image), self.alpha)
 
-
-            tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
-            self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
-            self.canvas.image = tk_image
+        tk_image = ImageTk.PhotoImage(out_img.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
+        self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
+        self.canvas.image = tk_image
         
     def show_offseg_masks(self):
          if self.offseg_mask is not None:
@@ -700,7 +693,7 @@ class SuperpixelGUI:
                     arr[i, j] = most_frequent
         self.label_hist = arr
 
-        col_image = self.label_image(False)
+        col_image = self.image
         tk_image = ImageTk.PhotoImage(col_image.resize((int(self.image_width*self.imscale), int(self.image_height*self.imscale))))
         self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
         self.canvas.image = tk_image
@@ -712,17 +705,25 @@ class SuperpixelGUI:
         original_save_path = os.path.join(save_folder, os.path.basename(self.image_name))
         self.original_image.save(original_save_path)  # Save the original image
 
-        color_labels_folder = "outputs/color_labels"
-        os.makedirs(color_labels_folder, exist_ok=True)
-        color_save_path = os.path.join(color_labels_folder, os.path.basename(self.image_name))
-        labeled_image = self.label_image()
-        labeled_image.save(color_save_path)
-
         labels_folder = "outputs/labels"
         os.makedirs(labels_folder, exist_ok=True)
         gray_save_path = os.path.join(labels_folder, os.path.basename(self.image_name))
         #gray_array = self.get_gray_array()
-        cv2.imwrite(gray_save_path, cv2.resize(self.label_hist, (self.org_np.shape[1],self.org_np.shape[0]), interpolation=cv2.INTER_NEAREST))
+        label_id_image = cv2.resize(self.label_hist, (self.org_np.shape[1],self.org_np.shape[0]), interpolation=cv2.INTER_NEAREST)
+        cv2.imwrite(gray_save_path, label_id_image)
+
+        color_labels_folder = "outputs/color_labels"
+        os.makedirs(color_labels_folder, exist_ok=True)
+        color_save_path = os.path.join(color_labels_folder, os.path.basename(self.image_name))
+        labeled_image = np.zeros((label_id_image.shape[0], label_id_image.shape[1], 3), dtype=np.uint8)
+        for i in range(label_id_image.shape[0]):
+            for j in range(label_id_image.shape[1]):
+                label_id = label_id_image[i, j]
+                if label_id in self.color_labels:
+                    label_color = self.color_labels[label_id][1]
+                    labeled_image[i, j] = tuple(int(label_color[k:k + 2], 16) for k in (1, 3, 5))
+        labeled_image = Image.fromarray(labeled_image)
+        labeled_image.save(color_save_path)
 
         #removing the image from work folder
         # os.remove(self.image_name)
@@ -735,6 +736,7 @@ class SuperpixelGUI:
         labeled_image = np.zeros((self.label_hist.shape[0], self.label_hist.shape[1], 3), dtype=np.uint8)
         for segment_id, label_id in self.segment_labels.items():
             mask = (self.label_hist == label_id)
+            print(segment_id, label_id, np.sum(mask))
             label_color = self.color_labels[label_id][1]
             labeled_image[mask] = tuple(int(label_color[i:i + 2], 16) for i in (1, 3, 5))
         if event:
@@ -753,8 +755,13 @@ class SuperpixelGUI:
 
     def next_image(self):
         self.segment_labels = {}  # Clear the segment labels for the next image
-        self.current_image_index += 1
+        self.current_image_index = min(self.current_image_index + 1, len(self.image_paths) - 1)
         self.load_image(self.current_image_index)  # Load the next image
+
+    def previous_image(self):
+        self.segment_labels = {}  # Clear the segment labels for the previous image
+        self.current_image_index = max(self.current_image_index - 1, 0)
+        self.load_image(self.current_image_index)  # Load the previous image
 
 if __name__ == "__main__":
     root = tk.Tk()
