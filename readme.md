@@ -70,9 +70,8 @@ To annotate your custom dataset with your own custom labels, please refer to [cu
 - Unlabeled pixels are now automatically given the 0 label_id, removed the 100\% pixel annotation condition to save the results
 - Added _Previous Image_ and _Next Image_ buttons
 - Updated the README (obviously)
-- A zoom feature
 - A free painting tool
-- TODO: debug and improve pan and zoomed painting
+- TODO: implement pan and zoomed painting
 
 ## License
 
