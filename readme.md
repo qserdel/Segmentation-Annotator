@@ -17,7 +17,7 @@ This repository is a fork from https://github.com/unmannedlab/Segmentation-Annot
 1. Clone the repository:
 
     ```bash
-    git clone https://git.sherpa-eng.com/gp_be_nantes/segmentation-annotator.git
+    git clone https://github.com/qserdel/segmentation-annotator.git
     ```
 
 2. Install the required dependencies: 
